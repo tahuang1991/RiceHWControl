@@ -1,5 +1,6 @@
 # f4t_scpi.py
 import socket
+import time
 from typing import Optional
 
 
@@ -19,24 +20,30 @@ class F4TSCPI:
       - Profiles (Programs)
       - Soft keys
     """
+    import socket
+import time
 
-    def __init__(self, host="192.168.0.100", port=5025, timeout=3.0, recv_bytes=4096):
+class SCPIError(RuntimeError):
+    pass
+
+class F4TSCPI:
+    def __init__(self, host, port=5025, timeout=3.0):
         self.host = host
         self.port = port
         self.timeout = timeout
-        self.recv_bytes = recv_bytes
-        self.sock: Optional[socket.socket] = None
+        self.sock = None
+        self._rxbuf = b""
+        self.last_scpi_error = None
 
-    # ---------------- connection ----------------
-    def connect(self) -> None:
-        if self.sock:
-            return
+    def connect(self):
         s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         s.settimeout(self.timeout)
         s.connect((self.host, self.port))
         self.sock = s
+        self._rxbuf = b""
+        self.last_scpi_error = None
 
-    def close(self) -> None:
+    def close(self):
         if self.sock:
             try:
                 self.sock.shutdown(socket.SHUT_RDWR)
@@ -52,35 +59,137 @@ class F4TSCPI:
     def __exit__(self, exc_type, exc, tb):
         self.close()
 
-    # ---------------- low-level I/O ----------------
-    def _send(self, msg: str) -> None:
+    def _send(self, cmd: str):
         if not self.sock:
-            raise SCPIError("Not connected. Call connect() first.")
-        self.sock.sendall((msg.strip() + "\n").encode("ascii", errors="strict"))
+            raise RuntimeError("Not connected")
+        # Use CRLF for SCPI
+        #print(f"TX: cmd = {cmd}")
+        self.sock.sendall((cmd.strip() + "\r\n").encode("ascii"))
 
-    def write(self, cmd: str) -> None:
-        """Send a SCPI command that does not return data."""
+    def _readline(self) -> str:
+        """Read one raw line (can be empty)."""
+        while b"\n" not in self._rxbuf:
+            chunk = self.sock.recv(4096)
+            if not chunk:
+                raise ConnectionError("Socket closed by peer")
+            self._rxbuf += chunk
+
+        line, self._rxbuf = self._rxbuf.split(b"\n", 1)
+        line = line.strip(b"\r").decode("ascii", errors="replace")
+        return line  # may be ""
+
+    def _readline_nonempty(self) -> str:
+        """Read next non-empty line; also capture SCPI error lines."""
+        while True:
+            line = self._readline().strip()
+            #print(f"while loop line from self._readline() {line} ")
+            if not line:
+                continue
+            if line.startswith("Inbound SCPI ERROR:"):
+                self.last_scpi_error = line
+                # Keep reading so queries still return their real data
+                continue
+            return line
+
+    def write(self, cmd: str):
+        # IMPORTANT: writes do not read
         self._send(cmd)
+        time.sleep(0.2)
 
     def query(self, cmd: str) -> str:
-        """Send a SCPI query and return a single-line response."""
-        cmd = cmd.strip()
-        if not cmd.endswith("?"):
+        if not cmd.strip().endswith("?"):
             raise ValueError("Query must end with '?'")
         self._send(cmd)
+        return self._readline_nonempty()
 
-        if not self.sock:
-            raise SCPIError("Not connected.")
+    #def __init__(self, host="192.168.0.100", port=5025, timeout=3.0, recv_bytes=4096):
+    #    self.host = host
+    #    self.port = port
+    #    self.timeout = timeout
+    #    self.recv_bytes = recv_bytes
+    #    self.sock: Optional[socket.socket] = None
 
-        chunks = []
-        while True:
-            data = self.sock.recv(self.recv_bytes)
-            if not data:
-                break
-            chunks.append(data)
-            if b"\n" in data or b"\r" in data:
-                break
-        return b"".join(chunks).decode("ascii", errors="replace").strip()
+    ## ---------------- connection ----------------
+    #def connect(self) -> None:
+    #    if self.sock:
+    #        return
+    #    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #    s.settimeout(self.timeout)
+    #    s.connect((self.host, self.port))
+    #    self.sock = s
+
+    #def close(self) -> None:
+    #    if self.sock:
+    #        try:
+    #            self.sock.shutdown(socket.SHUT_RDWR)
+    #        except OSError:
+    #            pass
+    #        self.sock.close()
+    #        self.sock = None
+
+    #def __enter__(self):
+    #    self.connect()
+    #    return self
+
+    #def __exit__(self, exc_type, exc, tb):
+    #    self.close()
+
+    ## ---------------- low-level I/O ----------------
+    #def _send(self, msg: str) -> None:
+    #    if not self.sock:
+    #        raise SCPIError("Not connected. Call connect() first.")
+    #    self.sock.sendall((msg.strip() + "\n").encode("ascii", errors="strict"))
+
+    #def write(self, cmd: str) -> None:
+    #    """Send a SCPI command that does not return data."""
+    #    print("TX:", cmd)
+    #    self._send(cmd)
+
+    #def query(self, cmd: str) -> str:
+    #    """Send a SCPI query and return a single-line response."""
+    #    cmd = cmd.strip()
+    #    if not cmd.endswith("?"):
+    #        raise ValueError("Query must end with '?'")
+    #    self._send(cmd)
+
+    #    if not self.sock:
+    #        raise SCPIError("Not connected.")
+
+    #    chunks = []
+    #    while True:
+    #        data = self.sock.recv(self.recv_bytes)
+    #        print("query data ", data)
+    #        if not data:
+    #            break
+    #        chunks.append(data)
+    #        if b"\n" in data or b"\r" in data:
+    #            break
+    #    return b"".join(chunks).decode("ascii", errors="replace").strip()
+    #def query(self, cmd: str) -> str:
+    #    cmd = cmd.strip()
+    #    if not cmd.endswith("?"):
+    #        raise ValueError("Query must end with '?'")
+
+    #    # Send with CRLF (SCPI safest)
+    #    self.sock.sendall((cmd + "\r\n").encode("ascii"))
+
+    #    # Read until we get a NON-empty line
+    #    buf = b""
+    #    while True:
+    #        chunk = self.sock.recv(4096)
+    #        if not chunk:
+    #            raise ConnectionError("Socket closed by peer")
+    #        print("query data ",chunk)
+    #        buf += chunk
+
+    #        # SCPI responses are line-based. Split on either \n or \r\n.
+    #        if b"\n" in buf:
+    #            line, buf = buf.split(b"\n", 1)  # keep remainder for later? (see note)
+    #            line = line.strip(b"\r")         # remove CR if present
+    #            if line.strip():                 # <-- skip empty lines
+    #                return line.decode("ascii", errors="replace").strip()
+    #            # else: it was blank line, keep waiting for the next line
+    #            # continue
 
     # ---------------- helpers ----------------
     @staticmethod
@@ -377,14 +486,41 @@ class F4TSCPI:
         # :KEY#:NAME?  [oai_citation:48‡F4T Setup Operation Manual 16802414 Rev D.pdf](sediment://file_000000004d6871f5a893bf3b0a73265d)
         return self.query(self._key(n) + ":NAME?")
 
-
+import time
 if __name__ == "__main__":
     # Example usage:
     with F4TSCPI(host="192.168.0.100") as f4t:
         print("IDN:", f4t.idn())
+
         print("PV loop1:", f4t.get_pv(1))
         print("SP loop1:", f4t.get_sp(1))
 
+        print("start to ramp to 20C")
+        f4t.set_sp(20, loop=1)
+        f4t.set_ramp_action_setpoint(loop=1)
+        f4t.set_ramp_scale_minutes(loop=1)
+        f4t.set_ramp_rate(2, 1) 
+        for itest in range(20):
+            #time.sleep(1)
+            #f4t.set_ramp_action_startup(loop=1)
+            print(time.ctime(time.time()), f"{itest} PV loop1:", f4t.get_pv(loop=1))
+            print(time.ctime(time.time()), f"{itest} SP loop1:", f4t.get_sp(loop=1))
+            time.sleep(15)
+            #print("PV loop1:", f4t.get_pv(loop=1))
+            #print("SP loop1:", f4t.get_sp(loop=1))
+
+        time.sleep(30)
         # Set SP to 10 (units depend on your loop configuration)
-        #f4t.set_sp(10, loop=1)
-        #print("SP loop1 after set:", f4t.get_sp(1))
+        print("PV loop1:", f4t.get_pv(1))
+        print("SP loop1:", f4t.get_sp(1))
+        print("start to ramp to 10C")
+        f4t.set_sp(10, loop=1)
+        f4t.set_ramp_action_setpoint(loop=1)
+        f4t.set_ramp_scale_minutes(loop=1)
+        f4t.set_ramp_rate(2, 1) 
+        for itest in range(20):
+            #time.sleep(1)
+            #f4t.set_ramp_action_startup(loop=1)
+            print(time.ctime(time.time()), f"{itest} PV loop1:", f4t.get_pv(loop=1))
+            print(time.ctime(time.time()), f"{itest} SP loop1:", f4t.get_sp(loop=1))
+            time.sleep(15)
