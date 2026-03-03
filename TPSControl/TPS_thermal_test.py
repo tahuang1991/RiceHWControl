@@ -78,7 +78,7 @@ def run_test():
         # configure ramp behavior
         f4t.set_ramp_scale_minutes(1)
         f4t.set_ramp_action_setpoint(1)
-        f4t.set_ramp_rate(2.0, 1)  # 1 °C/min
+        f4t.set_ramp_rate(1.0, 1)  # 1 °C/min
 
         with open("thermal_log.csv", "w", newline="") as f:
             w = csv.writer(f)
