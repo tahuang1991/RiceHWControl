@@ -4,6 +4,7 @@
 This softwares use Standard Commands for Programmable Instruments (SCPI) via Ethernet to control F4T, which controls the temperature of the chamber.  
 
 * F4TSCPI.py: define the class F4TSCPI to setup communication with F4T, and control/readout F4T. e.g. get_pv() is to read processing temperature (= current chamber temperature), get_sp() is to read setting temperature, set_sp() is to set the setting temperature.
+  * Note: the default IP in the F4TSCPI class is 192.168.0.100. This needs to be matched with settings on F4T
 * TPS_thermal_test.py: test code to run a thermal cycle using F4TSCPI class and log the data for every 5min:
   * step1: set the temperature ramp rate to 1 C/min
   * step2: ramp to 50C
