@@ -6,7 +6,7 @@ By Matthew Nutt, 2026 March
 from abc import ABC, abstractmethod
 import serial, socketscpi, time, re, logging
 
-SCPI_WRITE_DELAY = 0.1
+SCPI_WRITE_DELAY = 0.1 # default delay after writing an SCPI command, to allow the PSU time to process it before sending another command or a query. Adjust as needed for your specific PSU and communication protocol.
 
 
 
@@ -71,52 +71,52 @@ class BKPowerSupply:
         return f"IDN: {IDN}, SCPI Version: {VERS}"
 
     # Set the voltage setting of the given channel
-    def set_voltage(self, voltage: float, channel: int):
+    def set_voltage(self, voltage: float, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         self._write_scpi(f"VOLT {voltage}\n")
 
     # Set the current setting of the given channel
-    def set_current(self, current: float, channel: int):
+    def set_current(self, current: float, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         self._write_scpi(f"CURR {current}\n")
 
     # Get the voltage setting of the given channel
-    def get_voltage(self, channel: int):
+    def get_voltage(self, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         return self._parse_float_scpi(self._query_scpi("VOLT?\n"))
 
     # Get the current setting of the given channel
-    def get_current(self, channel: int):
+    def get_current(self, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         return self._parse_float_scpi(self._query_scpi("CURR?\n"))
     
     # Measure the voltage at the given channel
-    def measure_voltage(self, channel: int):
+    def measure_voltage(self, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         return self._parse_float_scpi(self._query_scpi("MEAS:VOLT?\n"))
     
     # Measure the current at the given channel
-    def measure_current(self, channel: int):
+    def measure_current(self, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         return self._parse_float_scpi(self._query_scpi("MEAS:CURR?\n"))
     
     # Measure the power at the given channel
-    def measure_power(self, channel: int):
+    def measure_power(self, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         return self._parse_float_scpi(self._query_scpi("MEAS:POW?\n"))
     
     # Disable the given channel
-    def disable_channel(self, channel: int):
+    def disable_channel(self, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         self._write_scpi(f"OUTP:STAT 0\n")
     
     # Enable the given channel
-    def enable_channel(self, channel: int):
+    def enable_channel(self, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         self._write_scpi(f"OUTP:STAT 1\n")
 
     # Return the enable/disable state of the given channel
-    def get_channel_state(self, channel: int):
+    def get_channel_state(self, channel: int = 0):
         self._write_scpi(f"INST:SEL {channel}\n")
         return bool(int(self._query_scpi(f"OUTP:STAT?\n")))
     
