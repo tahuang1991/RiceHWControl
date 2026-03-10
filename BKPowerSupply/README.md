@@ -3,8 +3,8 @@ BK powersupply control software
 
 ## BK Model and software control
 
-1. BK 1697B, controlled via USB cable + Standard Commands for Programmable Instruments (SCPI)
-2. BK 9140, controlled via ethernet cabe + SCPI
+1. BK1697B.py, BK1697B controlled via USB cable + Standard Commands for Programmable Instruments (SCPI)
+2. BKPowerSupply.py, BK9140 controlled via ethernet cabe + SCPI
 
 ## Documentation
 The control lib uses the pyserial module: https://github.com/pyserial/pyserial?tab=readme-ov-file
