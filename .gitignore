@@ -1,3 +1,4 @@
 *_log_*.csv
 *__pycache__/*
 BKPowerSupply/__pycache__/*
+TPSControl/__pycache__/*
