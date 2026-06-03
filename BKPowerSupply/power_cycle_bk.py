@@ -1,7 +1,7 @@
 import sys, os, time
 # Add the directory to the beginning of sys.path (higher priority)
-bkmodule_dir = os.path.expanduser('~/Documents/RiceHWControl/BKPowerSupply/')
-sys.path.insert(0, bkmodule_dir)
+#bkmodule_dir = os.path.expanduser('~/Documents/RiceHWControl/BKPowerSupply/')
+#sys.path.insert(0, bkmodule_dir)
 
 import serial
 from BKPowerSupply import PSUConfig, BKPowerSupply
