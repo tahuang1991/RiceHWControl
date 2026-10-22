@@ -1,3 +1,2 @@
-matplotlib==3.11.2
 pyserial==3.5
 socketscpi==2025.2.0
